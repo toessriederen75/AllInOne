@@ -1,0 +1,21 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- AllInOne map symbol, a pin of Blizzard's map canvas. It does not
+         inherit MapCanvasPinTemplate: Blizzard_MapCanvas loads only later,
+         with the map. MapPOI.lua copies Blizzard's pin functions into the
+         mixin AllInOnePOIPinMixin once the map is there; pins are only made
+         after that. -->
+    <Frame name="AllInOnePOIPinTemplate" mixin="AllInOnePOIPinMixin" virtual="true">
+        <Size x="20" y="20"/>
+        <Layers>
+            <Layer level="ARTWORK">
+                <Texture parentKey="Icon" setAllPoints="true"/>
+            </Layer>
+            <Layer level="HIGHLIGHT">
+                <Texture parentKey="Glow" alphaMode="ADD" alpha="0.45" setAllPoints="true"/>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad method="OnLoad"/>
+        </Scripts>
+    </Frame>
+</Ui>

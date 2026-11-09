@@ -1,0 +1,14 @@
+<Bindings>
+	<Binding name="ALLINONE_INVENTORY" header="ALLINONE" category="ADDONS">
+		AllInOne:Toggle("inventory")
+	</Binding>
+	<Binding name="ALLINONE_BANK" category="ADDONS">
+		AllInOne:Toggle("bank")
+	</Binding>
+	<Binding name="ALLINONE_GUILD" category="ADDONS">
+		AllInOne:Toggle("guild")
+	</Binding>
+	<Binding name="ALLINONE_SORT" category="ADDONS">
+		AllInOne:Sort("inventory")
+	</Binding>
+</Bindings>

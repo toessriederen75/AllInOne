@@ -1,0 +1,43 @@
+## Interface: 20506, 20505
+## Title: AllInOne
+## Notes: Bags, bank, guild bank and a set of everyday helpers in one addon.
+## Notes-deDE: Taschen, Bank, Gildenbank und viele Alltagshelfer in einem Addon.
+## Author: Arthur
+## Version: 2.15.0
+## SavedVariables: AllInOneDB
+## IconTexture: Interface\AddOns\AllInOne\Media\logo
+
+Anniversary.lua
+Compat.lua
+Locale.lua
+Core.lua
+Style.lua
+Data.lua
+Buttons.lua
+NewItems.lua
+Window.lua
+Windows.lua
+Sort.lua
+Options.lua
+Bags.lua
+
+Modules\Merchant.lua
+Modules\Quests.lua
+Modules\Buffs.lua
+Modules\Consumables.lua
+Modules\InfoBar.lua
+Modules\Tooltip.lua
+Modules\Minimap.lua
+Modules\ButtonBag.lua
+Modules\XPText.lua
+Modules\Comfort.lua
+Modules\Enhance.lua
+Modules\Chat.lua
+Modules\SpellRanks.lua
+Modules\Outfits.lua
+Modules\CastBar.lua
+Modules\Gtfo.lua
+Modules\Cleanse.lua
+Modules\Maps.lua
+Modules\MapPOI.lua
+Modules\MapPOI.xml

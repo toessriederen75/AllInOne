@@ -1,0 +1,7 @@
+.github export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+.previews export-ignore
+* text=auto eol=lf
+*.ogg binary
+*.tga binary
