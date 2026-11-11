@@ -38,6 +38,10 @@ if GetLocale() == "deDE" then
     L["Allegiance to the Aldor"]                = "Treue zu den Aldor"
     L["Allegiance to the Scryers"]              = "Treue zu den Sehern"
     L["Not handled: %s is a permanent choice."] = "Nicht erledigt: %s ist eine endgültige Wahl."
+    L["Leave escort quests to me"]              = "Eskortenquests mir überlassen"
+    L["Escort quests are not accepted for you: the escort starts at once, and in a group everyone should be ready first. Recognised by the quest's objectives."] =
+        "Eskortenquests werden nicht für dich angenommen: Die Eskorte beginnt sofort, und in der Gruppe sollen zuerst alle bereit sein. Erkannt an den Zielen der Quest."
+    L["Escort quest – accept it yourself when everyone is ready: %s"] = "Eskortenquest – nimm sie selbst an, wenn alle bereit sind: %s"
     L["Most valuable reward"]                   = "Wertvollste Belohnung"
     L["Skip gossip"]                            = "Gesprächstexte überspringen"
     L["Picks the only dialog option for you."]  = "Wählt die einzige Dialogoption für dich."
@@ -90,7 +94,7 @@ local Q = AIO:NewModule("questauto", {
     default  = true,
     defaults = {
         modifier = "SHIFT", accept = true, shared = false, turnin = true, bestReward = false,
-        markBest = true, gossip = true, skipRepeat = false,
+        markBest = true, gossip = true, skipRepeat = false, escort = true,
     },
 })
 
@@ -133,8 +137,30 @@ function Q:MayHandle(stage)
     return true
 end
 
+-- Escort quests: the NPC sets off as soon as the quest is taken. The game
+-- has no quest type for them, so they are known by their objectives
+-- ("Escort ...", "Eskortiert ...", "Begleitet ... sicher ...").
+local ESCORT_WORDS = { "escort", "eskort", "begleit", "beschütz", "beschuetz", "geleit",
+                       "safely", "in sicherheit", "sicher nach", "sicher zu", "sicher aus" }
+
+local function IsEscort()
+    local text = Call(_G.GetObjectiveText)
+    if type(text) ~= "string" or text == "" then return false end
+    if _G.issecretvalue and _G.issecretvalue(text) then return false end
+    text = text:lower()
+    for _, w in ipairs(ESCORT_WORDS) do
+        if text:find(w, 1, true) then return true end
+    end
+    return false
+end
+
 Q:On("QUEST_DETAIL", function()
     if not Q.db.accept or not Q:MayHandle("detail") then return end
+    if Q.db.escort and IsEscort() then
+        local title = Call(_G.GetTitleText) or ""
+        Q:Print(L["Escort quest – accept it yourself when everyone is ready: %s"], title)
+        return
+    end
     Call(_G.AcceptQuest)
 end)
 
@@ -362,6 +388,8 @@ Q.options = {
     { type = "select", key = "modifier", label = L["Hold to suspend"], values = MODIFIERS, width = 160 },
     { type = "header", label = L["Accepting"] },
     { type = "toggle", key = "accept", label = L["Accept quests"] },
+    { type = "toggle", key = "escort", label = L["Leave escort quests to me"],
+      desc = L["Escort quests are not accepted for you: the escort starts at once, and in a group everyone should be ready first. Recognised by the quest's objectives."] },
     { type = "toggle", key = "shared", label = L["Accept quests shared by your group"],
       desc = L["Confirms escort and group quests started by a group member."] },
     { type = "header", label = L["Turning in"] },
