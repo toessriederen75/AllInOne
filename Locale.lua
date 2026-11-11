@@ -170,3 +170,4 @@ BINDING_NAME_ALLINONE_INVENTORY = L["Bags"]
 BINDING_NAME_ALLINONE_BANK      = L["Bank"]
 BINDING_NAME_ALLINONE_GUILD     = L["Guild Bank"]
 BINDING_NAME_ALLINONE_SORT      = L["Sort"] .. " (" .. L["Bags"] .. ")"
+BINDING_NAME_ALLINONE_QUESTAUTO = (GetLocale() == "deDE") and "Quests automatisch annehmen ein/aus" or "Auto accept quests on/off"

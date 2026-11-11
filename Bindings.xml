@@ -11,4 +11,7 @@
 	<Binding name="ALLINONE_SORT" category="ADDONS">
 		AllInOne:Sort("inventory")
 	</Binding>
+	<Binding name="ALLINONE_QUESTAUTO" category="ADDONS">
+		AllInOne:ToggleQuestAuto()
+	</Binding>
 </Bindings>

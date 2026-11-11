@@ -38,6 +38,15 @@ if GetLocale() == "deDE" then
     L["Allegiance to the Aldor"]                = "Treue zu den Aldor"
     L["Allegiance to the Scryers"]              = "Treue zu den Sehern"
     L["Not handled: %s is a permanent choice."] = "Nicht erledigt: %s ist eine endgültige Wahl."
+    L["Hotkey: switch on and off"]              = "Tastenkürzel: ein- und ausschalten"
+    L["One key switches accepting and turning in quests on and off – for example while your group catches up. Click the button, then press the key; Esc removes it."] =
+        "Eine Taste schaltet das Annehmen und Abgeben von Quests ein und aus – zum Beispiel, solange deine Gruppe aufholt. Klick auf den Knopf und drück dann die Taste; Esc entfernt sie."
+    L["Not set"]                                = "Keine"
+    L["Press a key …"]                          = "Taste drücken …"
+    L["Not during combat."]                     = "Nicht im Kampf."
+    L["Quests accepted and turned in for you: %s"] = "Quests automatisch annehmen & abgeben: %s"
+    L["on"]                                     = "an"
+    L["off"]                                    = "aus"
     L["Leave escort quests to me"]              = "Eskortenquests mir überlassen"
     L["Escort quests are not accepted for you: the escort starts at once, and in a group everyone should be ready first. Recognised by the quest's objectives."] =
         "Eskortenquests werden nicht für dich angenommen: Die Eskorte beginnt sofort, und in der Gruppe sollen zuerst alle bereit sein. Erkannt an den Zielen der Quest."
@@ -379,12 +388,73 @@ Q:On("QUEST_GREETING", function()
     end
 end)
 
+-- Hotkey: the whole module on and off ------------------------------------------
+
+local BINDING = "ALLINONE_QUESTAUTO"
+
+function AIO:ToggleQuestAuto()
+    local on = not Q.enabled
+    self:SetModuleEnabled("questauto", on)
+    Q:Print(L["Quests accepted and turned in for you: %s"],
+        on and ("|cff40ff40" .. L["on"] .. "|r") or ("|cffff4040" .. L["off"] .. "|r"))
+    if AIO.RefreshOptions then pcall(AIO.RefreshOptions, AIO) end
+end
+
+local function KeyText()
+    local key = GetBindingKey and GetBindingKey(BINDING)
+    if not key then return L["Not set"] end
+    return (GetBindingText and GetBindingText(key, "KEY_")) or key
+end
+
+local IGNORE = { LSHIFT = true, RSHIFT = true, LCTRL = true, RCTRL = true, LALT = true, RALT = true,
+                 UNKNOWN = true, LeftButton = true, RightButton = true }
+
+-- A button that waits for the next key (with Shift, Ctrl or Alt if held)
+-- and binds it to the toggle. Esc removes the binding.
+local function BuildHotkey(parent, width)
+    local text = AIO.Style.Text(parent, 12)
+    text:SetPoint("TOPLEFT", 0, -4)
+    text:SetText(L["Hotkey: switch on and off"])
+    local b
+    b = AIO.Style.Button(parent, KeyText(), 160, 22, function()
+        if InCombatLockdown() then Q:Print(L["Not during combat."]) return end
+        b.text:SetText(L["Press a key …"])
+        b:EnableKeyboard(true)
+        b:SetPropagateKeyboardInput(false)
+    end)
+    b:SetPoint("TOPLEFT", text, "TOPRIGHT", 12, 4)
+    b.tip = L["One key switches accepting and turning in quests on and off – for example while your group catches up. Click the button, then press the key; Esc removes it."]
+    b:EnableKeyboard(false)
+    b:SetScript("OnKeyDown", function(self, key)
+        if IGNORE[key] then return end
+        self:EnableKeyboard(false)
+        if not InCombatLockdown() then
+            local old = GetBindingKey(BINDING)
+            while old do SetBinding(old); old = GetBindingKey(BINDING) end
+            if key ~= "ESCAPE" then
+                local combo = key
+                if IsShiftKeyDown() then combo = "SHIFT-" .. combo end
+                if IsControlKeyDown() then combo = "CTRL-" .. combo end
+                if IsAltKeyDown() then combo = "ALT-" .. combo end
+                SetBinding(combo, BINDING)
+            end
+            local set = GetCurrentBindingSet and GetCurrentBindingSet() or 1
+            if SaveBindings then SaveBindings(set) elseif AttemptToSaveBindings then AttemptToSaveBindings(set) end
+        end
+        self.text:SetText(KeyText())
+    end)
+    b:SetScript("OnHide", function(self) self:EnableKeyboard(false) end)
+    b:SetScript("OnShow", function(self) self.text:SetText(KeyText()) end)
+    return 30
+end
+
 -- Options ----------------------------------------------------------------------
 
 
 local function NotTurnin(M) return not M.db.turnin end
 
 Q.options = {
+    { type = "custom", build = BuildHotkey },
     { type = "select", key = "modifier", label = L["Hold to suspend"], values = MODIFIERS, width = 160 },
     { type = "header", label = L["Accepting"] },
     { type = "toggle", key = "accept", label = L["Accept quests"] },
