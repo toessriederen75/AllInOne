@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.18.0
+- Bags: a hunter's quiver or ammo pouch (and other special bags such as soul bags) is no longer shown in the middle of the bags but as its own block underneath. "Free" counts only the bags that take any item.
+
 ## 2.17.0
 - Auto accept: a hotkey switches accepting and turning in quests on and off, with a line in the chat. Set it on the page of the module (click the button, press the key; Esc removes it) or in the game's Key Bindings under AddOns.
 

@@ -70,6 +70,28 @@ local function LiveEntries(bags, list, gapFirst)
     return list
 end
 
+--- The bags split in two: those that take any item, and special ones (a
+--- hunter's quiver or ammo pouch, a soul bag ...), which only take their own
+--- kind of item and are shown apart, under the others.
+local function SplitBags(char, live)
+    local normal, special = {}, {}
+    for _, bag in ipairs(AIO:InventoryBags()) do
+        local family
+        if live then
+            family = AIO.NumSlots(bag) > 0 and AIO.BagFamily(bag) or 0
+        else
+            local data = char and char.bags and char.bags[bag]
+            family = data and data.family or 0
+        end
+        if bag ~= AIO.BACKPACK and family ~= 0 then
+            special[#special + 1] = bag
+        else
+            normal[#normal + 1] = bag
+        end
+    end
+    return normal, special
+end
+
 --- "Free: x/y" over the bags that take any item.
 local function FreeText(bags, char, live)
     local free, total = 0, 0
@@ -82,7 +104,7 @@ local function FreeText(bags, char, live)
             end
         else
             local data = char and char.bags and char.bags[bag]
-            if data and data.size then
+            if data and data.size and not data.family then
                 total = total + data.size
                 for slot = 1, data.size do
                     if not (data.items and data.items[slot]) then free = free + 1 end
@@ -120,14 +142,19 @@ local inventory = {
     Entries = function(w)
         local showKeys = AIO.KEYRING and AIO.settings.showKeyring
         if IsMe(w) then
-            local list = LiveEntries(AIO:InventoryBags())
+            local normal, special = SplitBags(nil, true)
+            local list = LiveEntries(normal)
+            -- Quiver, ammo pouch, soul bag: each its own block under the bags.
+            for _, bag in ipairs(special) do LiveEntries({ bag }, list, true) end
             if showKeys and AIO.NumSlots(AIO.KEYRING) > 0 then
                 LiveEntries({ AIO.KEYRING }, list, true)
             end
             return list
         end
         local char = AIO:CharData(w.owner)
-        local list = SavedEntries(char, AIO:InventoryBags())
+        local normal, special = SplitBags(char, false)
+        local list = SavedEntries(char, normal)
+        for _, bag in ipairs(special) do SavedEntries(char, { bag }, list, true) end
         if showKeys then SavedEntries(char, { AIO.KEYRING }, list, true) end
         return list
     end,

@@ -233,6 +233,10 @@ function AIO:SaveBag(bag)
     else
         if not data then data = {}; c.bags[bag] = data end
         Fill(data, bag, size)
+        -- Quivers, ammo pouches, soul bags: noted so the bag window can show
+        -- them apart when this character is looked at offline.
+        local family = (bag ~= self.BACKPACK and not self:IsBankBag(bag)) and self.BagFamily(bag) or 0
+        data.family = family ~= 0 and family or nil
         Contribute(self.player, where, data, 1)
     end
     c.lastSeen = time()
