@@ -38,6 +38,9 @@ if GetLocale() == "deDE" then
     L["Gold"]               = "Gold"
     L["Durability"]         = "Haltbarkeit"
     L["Bag space"]          = "Taschenplatz"
+    L["Reagents"]           = "Reagenzien"
+    L["Ammunition"]         = "Munition"
+    L["No ammunition equipped"] = "Keine Munition angelegt"
     L["Honor & arena points"] = "Ehre & Arenapunkte"
     L["Experience"]         = "Erfahrung"
     L["Performance"]        = "Leistung"
@@ -77,7 +80,7 @@ if GetLocale() == "deDE" then
     L["From:"]              = "Von:"
 end
 
-local SEGMENT_KEYS = { "gold", "durability", "bags", "honor", "xp", "perf", "clock", "coords", "guild", "mail" }
+local SEGMENT_KEYS = { "gold", "durability", "bags", "reagents", "ammo", "honor", "xp", "perf", "clock", "coords", "guild", "mail" }
 
 local M = AIO:NewModule("infobar", {
     title    = L["Info bar"],
@@ -87,7 +90,7 @@ local M = AIO:NewModule("infobar", {
     default  = true,
     defaults = {
         locked = true, grow = "CENTER", height = 20, fontSize = 11, alpha = 0.85, clock24 = true,
-        gold = true, durability = true, bags = true, honor = true, xp = true,
+        gold = true, durability = true, bags = true, reagents = true, ammo = true, honor = true, xp = true,
         perf = true, clock = true, coords = true, guild = true, mail = true,
     },
 })
@@ -113,6 +116,8 @@ M.options = {
     { type = "toggle", key = "gold",       label = L["Gold"],                 half = true },
     { type = "toggle", key = "durability", label = L["Durability"],           half = true },
     { type = "toggle", key = "bags",       label = L["Bag space"],            half = true },
+    { type = "toggle", key = "reagents",   label = L["Reagents"],             half = true },
+    { type = "toggle", key = "ammo",       label = L["Ammunition"],           half = true },
     { type = "toggle", key = "honor",      label = L["Honor & arena points"], half = true },
     { type = "toggle", key = "xp",         label = L["Experience"],           half = true },
     { type = "toggle", key = "perf",       label = L["Performance"],          half = true },
@@ -280,6 +285,83 @@ local function BagSpace()
     return free, total
 end
 
+-- Reagents your class uses for its spells, from the level the spell is
+-- learnt. Of each group only the newest one counts (the reagent of the rank
+-- you cast), so a druid sees one seed, not six.
+--   { item, level, group }
+local CLASS_REAGENTS = {
+    WARLOCK = { { 6265, 1 }, { 5565, 50 }, { 16583, 60 } },                 -- soul shard, infernal stone, demonic figurine
+    MAGE    = { { 17056, 12 }, { 17031, 20 }, { 17032, 40 }, { 17020, 56 } }, -- light feather, runes, arcane powder
+    PRIEST  = { { 17056, 34 }, { 17028, 48, "candle" }, { 17029, 56, "candle" } },
+    PALADIN = { { 17033, 30 }, { 21177, 52 } },                             -- symbol of divinity, symbol of kings
+    SHAMAN  = { { 17030, 30 } },                                            -- ankh
+    ROGUE   = { { 5140, 22 }, { 5530, 34 } },                               -- flash powder, blinding powder
+    DRUID   = {
+        { 17034, 20, "seed" }, { 17035, 30, "seed" }, { 17036, 40, "seed" },  -- rebirth seeds by rank
+        { 17037, 50, "seed" }, { 17038, 60, "seed" }, { 22147, 69, "seed" },
+        { 17021, 50, "gift" }, { 17026, 60, "gift" }, { 22148, 70, "gift" },  -- gift of the wild
+    },
+}
+
+local reagentList, reagentLevel
+local function Reagents()
+    local level = UnitLevel("player") or 1
+    if reagentList and reagentLevel == level then return reagentList end
+    local _, class = UnitClass("player")
+    local all, newest = CLASS_REAGENTS[class or ""] or {}, {}
+    for _, r in ipairs(all) do
+        if r[3] and level >= r[2] then newest[r[3]] = r end
+    end
+    reagentList, reagentLevel = {}, level
+    for _, r in ipairs(all) do
+        if level >= r[2] and (not r[3] or newest[r[3]] == r) then
+            reagentList[#reagentList + 1] = r[1]
+        end
+    end
+    return reagentList
+end
+
+local function ItemIcon(id)
+    return (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id))
+        or (GetItemIcon and GetItemIcon(id)) or 134400
+end
+
+local function ItemName(id)
+    local name = (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id))
+        or (GetItemInfo and GetItemInfo(id))
+    return name or ("#" .. id)
+end
+
+local function Count(id)
+    return (C_Item and C_Item.GetItemCount and C_Item.GetItemCount(id)) or (GetItemCount and GetItemCount(id)) or 0
+end
+
+local function InlineIcon(tex)
+    return ("|T%s:0:0:0:0:64:64:5:59:5:59|t"):format(tostring(tex))
+end
+
+local AMMO_SLOT = _G.INVSLOT_AMMO or 0
+local RANGED_SLOT = _G.INVSLOT_RANGED or 18
+-- Bows, guns and crossbows need ammunition.
+local AMMO_WEAPONS = { [2] = true, [3] = true, [18] = true }
+
+--- Ammunition: item, how many in the bags, or nil when nothing needs any.
+local function Ammo()
+    local id = GetInventoryItemID("player", AMMO_SLOT)
+    if id then
+        local n = GetInventoryItemCount("player", AMMO_SLOT)
+        if not n or n <= 1 then n = Count(id) end
+        return id, n
+    end
+    local ranged = GetInventoryItemID("player", RANGED_SLOT)
+    if ranged then
+        local info = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant
+        if not info then return end
+        local _, _, _, _, _, classID, subclassID = info(ranged)
+        if classID == 2 and AMMO_WEAPONS[subclassID] then return nil, 0 end
+    end
+end
+
 local function Currency(id)
     if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
         local ok, info = pcall(C_CurrencyInfo.GetCurrencyInfo, id)
@@ -376,6 +458,52 @@ local segments = {
                     Line(name, ("%d/%d"):format(AIO.FreeSlots(bag), AIO.NumSlots(bag)))
                 end
             end
+            Hint(L["Click: bags"])
+            GameTooltip:Show()
+        end,
+        click = function() AIO:Toggle("inventory") end,
+    },
+    {
+        key = "reagents", every = 60, events = { "BAG_UPDATE_DELAYED", "PLAYER_LEVEL_UP" },
+        text = function()
+            local list = Reagents()
+            if #list == 0 then return nil end
+            local parts = {}
+            for _, id in ipairs(list) do
+                local n = Count(id)
+                parts[#parts + 1] = InlineIcon(ItemIcon(id)) .. " " .. (n > 0 and tostring(n) or Colored(C.bad, "0"))
+            end
+            return table.concat(parts, "  ")
+        end,
+        tip = function(self)
+            Tip(self)
+            GameTooltip:AddLine(L["Reagents"], 1, 1, 1)
+            for _, id in ipairs(Reagents()) do
+                local n = Count(id)
+                local c = n > 0 and C.text or C.bad
+                GameTooltip:AddDoubleLine(InlineIcon(ItemIcon(id)) .. " " .. ItemName(id), tostring(n), 1, 1, 1, c[1], c[2], c[3])
+            end
+            Hint(L["Click: bags"])
+            GameTooltip:Show()
+        end,
+        click = function() AIO:Toggle("inventory") end,
+    },
+    {
+        key = "ammo", every = 60,
+        events = { "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "UNIT_INVENTORY_CHANGED" },
+        text = function()
+            local id, n = Ammo()
+            if not n then return nil end
+            local c = n < 200 and C.bad or (n < 500 and C.warn or C.text)
+            local icon = id and ItemIcon(id) or "Interface\\Icons\\INV_Ammo_Arrow_02"
+            return InlineIcon(icon) .. " " .. Colored(c or C.text, tostring(n))
+        end,
+        tip = function(self)
+            Tip(self)
+            local id, n = Ammo()
+            GameTooltip:AddLine(L["Ammunition"], 1, 1, 1)
+            if id then Line(ItemName(id), tostring(n or 0))
+            else GameTooltip:AddLine(L["No ammunition equipped"], C.bad[1], C.bad[2], C.bad[3]) end
             Hint(L["Click: bags"])
             GameTooltip:Show()
         end,
