@@ -340,26 +340,41 @@ local function InlineIcon(tex)
     return ("|T%s:0:0:0:0:64:64:5:59:5:59|t"):format(tostring(tex))
 end
 
-local AMMO_SLOT = _G.INVSLOT_AMMO or 0
-local RANGED_SLOT = _G.INVSLOT_RANGED or 18
--- Bows, guns and crossbows need ammunition.
-local AMMO_WEAPONS = { [2] = true, [3] = true, [18] = true }
+-- Ammunition: only classes that shoot bows, guns or crossbows, and only
+-- with one of them in the ranged slot. The slots are asked from the game
+-- by name, since newer clients number them differently.
+local AMMO_CLASSES = { HUNTER = true, WARRIOR = true, ROGUE = true }
+local AMMO_WEAPONS = { [2] = true, [3] = true, [18] = true }   -- bow, gun, crossbow
 
---- Ammunition: item, how many in the bags, or nil when nothing needs any.
+local function SlotID(name)
+    if not GetInventorySlotInfo then return nil end
+    local ok, id = pcall(GetInventorySlotInfo, name)
+    if ok then return id end
+end
+
+local function ItemClass(id)
+    local info = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant
+    if not (info and id) then return end
+    local _, _, _, _, _, classID, subclassID = info(id)
+    return classID, subclassID
+end
+
+--- Ammunition: item, how many you carry; nothing when nothing needs any.
 local function Ammo()
-    local id = GetInventoryItemID("player", AMMO_SLOT)
-    if id then
-        local n = GetInventoryItemCount("player", AMMO_SLOT)
+    local _, class = UnitClass("player")
+    if not AMMO_CLASSES[class or ""] then return end
+    local ranged = SlotID("RangedSlot")
+    local weapon = ranged and GetInventoryItemID("player", ranged)
+    local classID, subclassID = ItemClass(weapon)
+    if classID ~= 2 or not AMMO_WEAPONS[subclassID] then return end
+    local slot = SlotID("AmmoSlot")
+    local id = slot and GetInventoryItemID("player", slot)
+    if id and ItemClass(id) == 6 then   -- projectile
+        local n = GetInventoryItemCount("player", slot)
         if not n or n <= 1 then n = Count(id) end
         return id, n
     end
-    local ranged = GetInventoryItemID("player", RANGED_SLOT)
-    if ranged then
-        local info = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant
-        if not info then return end
-        local _, _, _, _, _, classID, subclassID = info(ranged)
-        if classID == 2 and AMMO_WEAPONS[subclassID] then return nil, 0 end
-    end
+    return nil, 0
 end
 
 local function Currency(id)

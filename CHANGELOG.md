@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.19.1
+- Info bar: the ammunition segment shows only for hunters, warriors and rogues with a bow, gun or crossbow in the ranged slot (it showed for a paladin too). The slots are now asked from the game by name.
+
 ## 2.19.0
 - Info bar: new segment "Reagents" – the reagents your class needs for its spells with how many you carry (0 in red), from the level the spell is learnt; of druid seeds, priest candles and the like only the one of your current rank. Hover for the names.
 - Info bar: new segment "Ammunition" – how much of the equipped ammunition you carry (red under 200, yellow under 500); shown only with a bow, gun or crossbow or ammunition equipped.
