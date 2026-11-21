@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.19.2
+- Info bar: clicking durability, coordinates or guild no longer opens the window from our code (on the newer client that tainted the character window and gave an error about a "secret number value"); the segment clicks the game's own button of the micro menu instead. While in combat the bar only updates its texts and lays itself out again afterwards.
+
 ## 2.19.1
 - Info bar: the ammunition segment shows only for hunters, warriors and rogues with a bow, gun or crossbow in the ranged slot (it showed for a paladin too). The slots are now asked from the game by name.
 

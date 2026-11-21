@@ -451,6 +451,7 @@ local segments = {
             Hint(L["Click: character window"])
             GameTooltip:Show()
         end,
+        secure = { "CharacterMicroButton" },
         click = function() if ToggleCharacter then ToggleCharacter("PaperDollFrame") end end,
     },
     {
@@ -636,6 +637,7 @@ local segments = {
             Hint(L["Click: world map"])
             GameTooltip:Show()
         end,
+        secure = { "WorldMapMicroButton", "MiniMapWorldMapButton" },
         click = function() if ToggleWorldMap then ToggleWorldMap() end end,
     },
     {
@@ -663,6 +665,7 @@ local segments = {
             Hint(L["Click: guild window"])
             GameTooltip:Show()
         end,
+        secure = { "GuildMicroButton", "SocialsMicroButton" },
         click = function()
             if ToggleGuildFrame then
                 local ok = pcall(ToggleGuildFrame)
@@ -700,8 +703,28 @@ M.segments = segments
 local bar
 local PAD, ICON_GAP = 10, 4
 
+-- Blizzard's windows (character, map, guild) must not be opened by our
+-- code: on the newer client that taints them and the character window then
+-- fails on its own values. Those segments are secure buttons that click the
+-- matching game button (micro menu) for us, so the game opens the window.
+local function SecureTarget(seg)
+    for _, name in ipairs(seg.secure or {}) do
+        local target = _G[name]
+        if target and target.Click then return target end
+    end
+end
+
+local hasSecure = false
+
 local function SegmentFrame(seg)
-    local b = CreateFrame("Button", nil, bar)
+    local target = SecureTarget(seg)
+    local b = CreateFrame("Button", nil, bar, target and "SecureActionButtonTemplate" or nil)
+    if target then
+        b:SetAttribute("type1", "click")
+        b:SetAttribute("clickbutton1", target)
+        b.secure = true
+        hasSecure = true
+    end
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     b.hl = b:CreateTexture(nil, "BACKGROUND", nil, 1)
     b.hl:SetTexture(Style.WHITE)
@@ -731,10 +754,17 @@ local function SegmentFrame(seg)
         self.hl:Hide()
         GameTooltip_Hide()
     end)
-    b:SetScript("OnClick", function(self, button)
-        if bar.dragEnd and GetTime() - bar.dragEnd < 0.3 then return end
-        if seg.click then seg.click(self, button) end
-    end)
+    if b.secure then
+        -- Left click is the game's; other buttons still run our code.
+        b:HookScript("OnClick", function(self, button)
+            if button ~= "LeftButton" and seg.click then seg.click(self, button) end
+        end)
+    else
+        b:SetScript("OnClick", function(self, button)
+            if bar.dragEnd and GetTime() - bar.dragEnd < 0.3 then return end
+            if seg.click then seg.click(self, button) end
+        end)
+    end
     -- Dragging a segment moves the whole bar while it is unlocked.
     b:RegisterForDrag("LeftButton")
     b:SetScript("OnDragStart", function() M:StartDrag() end)
@@ -776,6 +806,7 @@ end
 --- Unlocked: drag anywhere. Locked: Alt + drag still moves it.
 function M:StartDrag()
     if not bar or (self.db.locked and not IsAltKeyDown()) then return end
+    if hasSecure and InCombatLockdown() then return end
     GameTooltip_Hide()
     bar.moving = true
     bar:StartMoving()
@@ -798,6 +829,7 @@ end
 
 function M:Layout()
     if not bar then return end
+    if hasSecure and InCombatLockdown() then self.pendingLayout = true return end
     local db = self.db
     local h = db.height
     self:Place()
@@ -841,6 +873,17 @@ function M:Refresh(all)
         end
     end
     if not changed then return end
+    -- With secure segments on it the bar can't be laid out in combat: only
+    -- the texts change, the layout follows when combat ends.
+    if hasSecure and InCombatLockdown() then
+        for _, seg in ipairs(segments) do
+            local b = seg.frame
+            if b:IsShown() and seg.cached then b.text:SetText(seg.cached) end
+        end
+        self.pendingLayout = true
+        return
+    end
+    self.pendingLayout = nil
 
     local x = 1
     local prev
@@ -935,6 +978,10 @@ for _, seg in ipairs(segments) do
     end
 end
 
+M:On("PLAYER_REGEN_ENABLED", function()
+    if M.pendingLayout then M:Refresh(true) end
+end)
+
 M:On("PLAYER_XP_UPDATE", TrackXP)
 M:On("PLAYER_LEVEL_UP", function() AIO:Later("infobar-xp", TrackXP) end)
 M:On("GUILD_ROSTER_UPDATE", ReadRoster)
@@ -954,6 +1001,16 @@ function M:OnEnable()
 end
 
 function M:OnDisable()
+    if bar and hasSecure and InCombatLockdown() then
+        -- Hidden when combat ends.
+        local f = CreateFrame("Frame")
+        f:RegisterEvent("PLAYER_REGEN_ENABLED")
+        f:SetScript("OnEvent", function(self)
+            self:UnregisterAllEvents()
+            if not M.enabled and bar then bar:Hide() end
+        end)
+        return
+    end
     if bar then
         bar:StopMovingOrSizing()
         bar:Hide()
