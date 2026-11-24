@@ -46,7 +46,9 @@ end
 
 local REPLAY_LINES = 30
 local MAX_RESULTS = 500
-local LINK_PREFIX = "aiourl:"
+-- The game's own link type for addons: a click on it is passed on to us
+-- without our code standing in the way of Blizzard's link handling.
+local LINK_PREFIX = "addon:allinone:url:"
 
 local function SK(name, fallback)
     return (SOUNDKIT and SOUNDKIT[name]) or fallback
@@ -217,23 +219,32 @@ local function ShowURL(url)
     w.edit:HighlightText()
 end
 
-local function HookSetItemRef()
-    if M.itemRefHooked or not _G.SetItemRef then return end
-    M.itemRefHooked = true
-    local orig = _G.SetItemRef
-    _G.SetItemRef = function(link, text, button, chatFrame, ...)
-        if type(link) == "string" and link:sub(1, #LINK_PREFIX) == LINK_PREFIX then
-            -- Ours, even when the module is off: Blizzard's code does not know it.
-            local url = link:sub(#LINK_PREFIX + 1)
-            if IsShiftKeyDown and IsShiftKeyDown() and ChatEdit_GetActiveWindow then
-                local box = ChatEdit_GetActiveWindow()
-                if box then box:Insert(url) return end
-            end
-            ShowURL(url)
-            return
-        end
-        return orig(link, text, button, chatFrame, ...)
+-- Our web links. Blizzard's SetItemRef is not replaced (that tainted every
+-- click on a link, so "Copy character name" in a name's menu failed): the
+-- game hands addon links to EventRegistry, and older clients are followed
+-- with a secure hook. One click is handled once.
+local lastClick = 0
+local function OnLink(link)
+    if type(link) ~= "string" or link:sub(1, #LINK_PREFIX) ~= LINK_PREFIX then return end
+    if _G.issecretvalue and _G.issecretvalue(link) then return end
+    local now = GetTime()
+    if now - lastClick < 0.2 then return end
+    lastClick = now
+    local url = link:sub(#LINK_PREFIX + 1)
+    if IsShiftKeyDown and IsShiftKeyDown() and ChatEdit_GetActiveWindow then
+        local box = ChatEdit_GetActiveWindow()
+        if box then box:Insert(url) return end
     end
+    ShowURL(url)
+end
+
+local function HookSetItemRef()
+    if M.itemRefHooked then return end
+    M.itemRefHooked = true
+    if EventRegistry and EventRegistry.RegisterCallback then
+        pcall(EventRegistry.RegisterCallback, EventRegistry, "SetItemRef", function(_, link) OnLink(link) end, M)
+    end
+    if _G.SetItemRef then pcall(hooksecurefunc, "SetItemRef", function(link) OnLink(link) end) end
 end
 
 -- ---------------------------------------------------------------------------

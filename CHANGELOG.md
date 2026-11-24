@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.19.3
+- Chat: "Copy character name" (and other entries) in the menu of a name in the chat no longer fail. Blizzard's link handling is not replaced any more for our web links (that tainted every click on a link); web links now use the game's own link type for addons.
+
 ## 2.19.2
 - Info bar: clicking durability, coordinates or guild no longer opens the window from our code (on the newer client that tainted the character window and gave an error about a "secret number value"); the segment clicks the game's own button of the micro menu instead. While in combat the bar only updates its texts and lays itself out again afterwards.
 
