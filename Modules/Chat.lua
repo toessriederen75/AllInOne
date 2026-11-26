@@ -192,6 +192,50 @@ local function UrlFilter(self, event, msg, ...)
     return false
 end
 
+-- ---------------------------------------------------------------------------
+-- Newer client (WoW Forever): in instances, above all in battlegrounds,
+-- chat lines carry "secret" values. Blizzard's chat code may only work on
+-- them while nothing of an addon ran in between – a filter of ours or our
+-- own AddMessage made it fail (whisper target, battleground chat filters).
+-- So there: no AddMessage of ours at all, and our filters are taken out
+-- while you are in an instance and put back outside.
+-- ---------------------------------------------------------------------------
+
+local SECRET_CLIENT = _G.issecretvalue ~= nil
+
+-- Short channel numbers on the newer client: from the channel's own text
+-- ("2. Handel - Stadt" -> "2"), before Blizzard builds the line.
+local function ChannelFilter(self, event, msg, author, lang, channel, ...)
+    if not (M.enabled and M.db.shortNames) or type(channel) ~= "string" or IsSecret(channel) then return false end
+    local num = channel:match("^(%d+)%.")
+    if not num then return false end
+    local new = num
+    if M.enabled and M.db.urls and type(msg) == "string" and not IsSecret(msg) then msg = Linkify(msg) end
+    return false, msg, author, lang, new, ...
+end
+
+local addFilter = _G.ChatFrame_AddMessageEventFilter
+    or (type(_G.ChatFrameUtil) == "table" and _G.ChatFrameUtil.AddMessageEventFilter)
+local removeFilter = _G.ChatFrame_RemoveMessageEventFilter
+    or (type(_G.ChatFrameUtil) == "table" and _G.ChatFrameUtil.RemoveMessageEventFilter)
+
+local filtersOn = false
+local function SetFilters(on)
+    if on == filtersOn or not addFilter then return end
+    if not on and not removeFilter then return end
+    filtersOn = on
+    for _, event in ipairs(URL_EVENTS) do
+        local fn = (SECRET_CLIENT and event == "CHAT_MSG_CHANNEL") and ChannelFilter or UrlFilter
+        if on then addFilter(event, fn) else removeFilter(event, fn) end
+    end
+end
+
+local function UpdateFilters()
+    if not SECRET_CLIENT then SetFilters(true) return end
+    local inside = IsInInstance()
+    SetFilters(not inside)
+end
+
 local function ShowURL(url)
     local w = M.urlWindow
     if not w then
@@ -475,16 +519,16 @@ local function WhisperSound()
     PlaySound(M.db.sound or SOUNDS[1].value, "Master")
 end
 M:On("CHAT_MSG_WHISPER", WhisperSound)
+M:On("PLAYER_ENTERING_WORLD", function() if M.installed then UpdateFilters() end end)
+M:On("ZONE_CHANGED_NEW_AREA", function() if M.installed then UpdateFilters() end end)
 M:On("CHAT_MSG_BN_WHISPER", WhisperSound)
 
 function M:OnEnable()
     if not self.installed then
         self.installed = true
-        HookChatFrames()
+        if not SECRET_CLIENT then HookChatFrames() end
         HookSetItemRef()
-        if ChatFrame_AddMessageEventFilter then
-            for _, event in ipairs(URL_EVENTS) do ChatFrame_AddMessageEventFilter(event, UrlFilter) end
-        end
+        UpdateFilters()
     end
     Trim(self.db.log, self.db.historySize or 200)
     if not self.replayed then

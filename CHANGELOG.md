@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.19.4
+- Chat: on clients with protected ("secret") chat values the chat windows' AddMessage is no longer replaced, and the chat filters are taken out inside instances – prevents errors in battlegrounds.
+
 ## 2.19.3
 - Chat: "Copy character name" (and other entries) in the menu of a name in the chat no longer fail. Blizzard's link handling is not replaced any more for our web links (that tainted every click on a link); web links now use the game's own link type for addons.
 
